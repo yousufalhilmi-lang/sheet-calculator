@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حاسبة إنتاج وتكلفة حلقات الحلزون</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #1e293b;
+            padding: 20px;
+            direction: rtl;
+        }
+        .container {
+            max-width: 550px;
+            margin: 0 auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+        h1 { text-align: center; color: #059669; font-size: 22px; margin-bottom: 25px; font-weight: bold; }
+        h2 { color: #1e40af; font-size: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-top: 25px; }
+        .input-group { margin-bottom: 12px; display: flex; flex-direction: column; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #475569; }
+        input { padding: 12px; border: 2px solid #cbd5e1; border-radius: 6px; font-size: 15px; outline: none; }
+        input:focus { border-color: #059669; }
+        
+        button {
+            width: 100%; color: white; padding: 12px;
+            border: none; border-radius: 6px; font-size: 15px; font-weight: bold;
+            cursor: pointer; margin-top: 8px; transition: background-color 0.2s;
+        }
+        .btn-shaft { background-color: #2563eb; }
+        .btn-shaft:hover { background-color: #1e40af; }
+        
+        .btn-sheet { background-color: #059669; }
+        .btn-sheet:hover { background-color: #047857; }
+        
+        .results-box {
+            margin-top: 15px; padding: 15px; background-color: #f8fafc;
+            border-radius: 6px; display: none;
+        }
+        .res-shaft-box { border-right: 5px solid #2563eb; }
+        .res-sheet-box { border-right: 5px solid #059669; }
+        
+        .result-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 16px; }
+        .result-item:last-child { border-bottom: none; }
+        .value { font-weight: bold; font-size: 16px; }
+        .val-blue { color: #2563eb; }
+        .val-green { color: #059669; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📐 حاسبة إنتاج وتكلفة حلقات الحلزون</h1>
+    
+    <!-- القسم الأول الفردي لحساب عدد الحلقات للعمود -->
+    <h2>1. حساب عدد حلقات العمود (منفصل):</h2>
+    <div class="input-group">
+        <label>إجمالي طول العمود المطلوب تغطيته (سم):</label>
+        <input type="number" id="shaftLength" value="200">
+    </div>
+    <div class="input-group">
+        <label>مسافة خطوة الحلزون المعتمدة (P) سم:</label>
+        <input type="number" id="pitch" value="15">
+    </div>
+    
+    <button type="button" class="btn-shaft" onclick="calculateShaftRings()">احسب عدد حلقات العمود لوحدها</button>
+
+    <div class="results-box res-shaft-box" id="shaftResults">
+        <div class="result-item">
+            <span>عدد الحلقات المطلوبة لتغطية هذا العمود:</span>
+            <span class="value val-blue" id="resTotalRings">0 حلقة</span>
+        </div>
+    </div>
+
+    <!-- القسم الثاني لحساب الصاج وتوزيع السعر بنظام القص المتداخل -->
+    <h2>2. حساب توزيع الدوائر وتكلفة قطعة الصاج:</h2>
+    <div class="input-group">
+        <label>طول لوح الصاج المتوفر (سم):</label>
+        <input type="number" id="sheetLength" value="200">
+    </div>
+    <div class="input-group">
+        <label>عرض لوح الصاج المتوفر (سم):</label>
+        <input type="number" id="sheetWidth" value="100">
+    </div>
+    <div class="input-group">
+        <label>سعر لوح الصاج بالكامل (سعر القطعة كاملة):</label>
+        <input type="number" id="sheetTotalPrice" value="1500" step="1">
+    </div>
+    <div class="input-group">
+        <label>قطر القص الخارجي للحلقة الناتجة (Blank OD) سم:</label>
+        <input type="number" id="blankOD" value="20.1" step="0.1">
+    </div>
+
+    <button type="button" class="btn-sheet" onclick="calculateSheetSpecs()">احسب توزيع الأبعاد وتكلفة الدائرة</button>
+
+    <div class="results-box res-sheet-box" id="sheetResultsBox">
+        <div class="result-item">
+            <span>عدد الدوائر الممكن قصها (بنظام الرص المتداخل):</span>
+            <span class="value val-green" id="resRingsPerSheet">0 حلقة</span>
+        </div>
+        <div class="result-item" style="background-color: #fef2f2; padding: 6px; border-radius: 4px;">
+            <span>سعر الدائرة الواحدة بعد توزيع السعر والقص المتداخل:</span>
+            <span class="value" id="resCostPerRing" style="color: #b91c1c;">0</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateShaftRings() {
+        var shaftL = parseFloat(document.getElementById('shaftLength').value);
+        var pitch = parseFloat(document.getElementById('pitch').value);
+
+        if (isNaN(shaftL) || isNaN(pitch) || pitch <= 0) {
+            alert("الرجاء إدخال طول عمود وخطوة صالحة");
+            return;
+        }
+
+        var totalRingsNeeded = Math.ceil(shaftL / pitch);
+        document.getElementById('resTotalRings').innerText = totalRingsNeeded + " حلقة كاملة";
+        document.getElementById('shaftResults').style.display = 'block';
+    }
+
+    function calculateSheetSpecs() {
+        var sheetL = parseFloat(document.getElementById('sheetLength').value);
+        var sheetW = parseFloat(document.getElementById('sheetWidth').value);
+        var totalPrice = parseFloat(document.getElementById('sheetTotalPrice').value) || 0;
+        var blankOD = parseFloat(document.getElementById('blankOD').value);
+        
+        // تثبيت مسافة الأمان برمجياً في الخلفية على نصف سم (0.5 سم = 5 ملم) بناءً على طلبك
+        var safetySpace = 0.5; 
+
+        if (isNaN(sheetL) || isNaN(sheetW) || isNaN(blankOD) || blankOD <= 0 || sheetL <= 0 || sheetW <= 0) {
+            alert("الرجاء إدخال أرقام صحيحة وصالحة للحساب");
+            return;
+        }
+
+        // القطر الفعلي الشامل لمسافة الأمان 5 ملم
+        var effD = blankOD + safetySpace;
+
+        // الحساب البرمجي الاحترافي لنظام القص المتداخل (Nesting) التبادلي في الاتجاهين
+        // الخيار الأول: رص الصفوف باتجاه الطول
+        var ringsOption1 = 0;
+        var cols1 = Math.floor((sheetL - effD) / effD) + 1;
+        var rows1 = 0;
+        if (sheetW >= effD) {
+            rows1 = Math.floor((sheetW - effD) / (effD * 0.866)) + 1;
+        }
+        if (cols1 > 0 && rows1 > 0) {
+            // في الرص المتداخل التبادلي، نصف الصفوف يحتوي على حلقة أقل إذا لم يتسع العرض
+            var fullRows1 = Math.ceil(rows1 / 2);
+            var shortRows1 = Math.floor(rows1 / 2);
+            var itemInShortRow1 = Math.floor((sheetL - (effD / 2)) / effD);
+            if (itemInShortRow1 < 0) itemInShortRow1 = 0;
+            ringsOption1 = (fullRows1 * cols1) + (shortRows1 * itemInShortRow1);
+        }
+
+        // الخيار الثاني: رص الصفوف باتجاه العرض (أحياناً يعطي عدداً أكبر حسب مقاس اللوح)
+        var ringsOption2 = 0;
+        var cols2 = Math.floor((sheetW - effD) / effD) + 1;
+        var rows2 = 0;
+        if (sheetL >= effD) {
+            rows2 = Math.floor((sheetL - effD) / (effD * 0.866)) + 1;
+        }
+        if (cols2 > 0 && rows2 > 0) {
+            var fullRows2 = Math.ceil(rows2 / 2);
+            var shortRows2 = Math.floor(rows2 / 2);
+            var itemInShortRow2 = Math.floor((sheetW - (effD / 2)) / effD);
+            if (itemInShortRow2 < 0) itemInShortRow2 = 0;
+            ringsOption2 = (fullRows2 * cols2) + (shortRows2 * itemInShortRow2);
+        }
+
+        // اختيار التوزيعة الأفضل والأعلى إنتاجية لورشتك تلقائياً
+        var finalRingsCount = Math.max(ringsOption1, ringsOption2);
+        
+        // توزيع السعر الصافي للوحة الصاج على عدد الدوائر الناتجة من التداخل
+        var costPerRing = finalRingsCount > 0 ? (totalPrice / finalRingsCount) : 0;
+
+        // عرض النتائج الميدانية الصافية
+        document.getElementById('resRingsPerSheet').innerText = finalRingsCount + " حلقة (بالقص المتداخل الموفر)";
+        document.getElementById('resCostPerRing').innerText = costPerRing.toFixed(1) + " (سعر الدائرة الواحدة)";
+
+        document.getElementById('sheetResultsBox').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
